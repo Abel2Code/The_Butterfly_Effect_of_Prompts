@@ -3,3 +3,5 @@ __pycache__
 cache
 .ipynb_checkpoints
 *.ipynb
+datasets/*.csv
+output/*.csv

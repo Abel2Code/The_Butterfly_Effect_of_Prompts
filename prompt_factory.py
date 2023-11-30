@@ -1,19 +1,6 @@
+from factory import Factory
 from formatters import *
 from injectors import *
-
-class Factory:
-    def __init__(self):
-        self._builders = {}
-
-    def register_builder(self, key, builder):
-        self._builders[key] = builder
-
-    def create(self, key, **kwargs):
-        builder = self._builders.get(key)
-        if not builder:
-            raise ValueError(key)
-            
-        return builder
 
 class PromptGenerator:
     def __init__(self, injector, formatter):
@@ -28,7 +15,7 @@ class PromptGenerator:
 prompt_factory = Factory()
               
 prompt_factory_dict = {
-    "Baseline": PromptGenerator(python_list_inject, baseline_formatter),
+    "BASELINE": PromptGenerator(python_list_inject, baseline_formatter),
 
     # Output Style Prompts
     "JSON_STYLE": PromptGenerator(json_inject, baseline_formatter),
@@ -53,5 +40,12 @@ prompt_factory_dict = {
     "REFUSAL_JB": PromptGenerator(python_list_inject, refusal_jb_formatter)
 }
 
+special_prompt_factory_dict = {
+    "CLEAR": PromptGenerator(clear_inject, baseline_formatter)
+}
+
 for k, v in prompt_factory_dict.items():
+    prompt_factory.register_builder(k, v)
+
+for k, v in special_prompt_factory_dict.items():
     prompt_factory.register_builder(k, v)
