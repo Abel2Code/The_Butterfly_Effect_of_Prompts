@@ -1,4 +1,4 @@
-from factory import Factory
+from helper import Factory
 from formatters import *
 from injectors import *
 
@@ -15,7 +15,7 @@ class PromptGenerator:
 prompt_factory = Factory()
               
 prompt_factory_dict = {
-    "BASELINE": PromptGenerator(python_list_inject, baseline_formatter),
+    "ORIGINAL": PromptGenerator(python_list_inject, baseline_formatter),
 
     # Output Style Prompts
     "JSON_STYLE": PromptGenerator(json_inject, baseline_formatter),

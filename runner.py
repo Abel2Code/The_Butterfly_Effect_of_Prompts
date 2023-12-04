@@ -23,20 +23,22 @@ class Runner():
         label_list = list(set(labels))
         label_list.sort()
         label_list_str = '"' + '", "'.join(label_list) + '"'
+
+        text_seperator = "```"
         
-        prompt = f"Which one of the attributes: {label_list_str} describes a given text? {INJECTION_POSITION_STRING} Text: "
+        prompt = f"Which one of the attributes: {label_list_str} describes a given text? {INJECTION_POSITION_STRING} Text: {text_seperator}"
         
         responses = defaultdict(list)
         for s in tqdm(samples):
             for key, factory in zip(self.factory_keys, self.factories):
-                curr_prompt = prompt + s
+                curr_prompt = prompt + s + text_seperator
                 curr_prompt = factory.generate(curr_prompt)
             
                 res = self.model.chat(curr_prompt)
                 responses[key].append(res)
 
             for col_name, model, factory in zip(self.special_col_names, self.special_models, self.special_factories):
-                curr_prompt = prompt + s
+                curr_prompt = prompt + s + text_seperator
                 curr_prompt = factory.generate(curr_prompt)
 
                 res = model.chat(curr_prompt)
@@ -44,20 +46,23 @@ class Runner():
 
             # Bonus Experiments
             # - Prompt as a statement
-            statement_prompt = f"Select one of the attributes: {label_list_str} that describes the given text. {INJECTION_POSITION_STRING} Text: "
-            curr_prompt = statement_prompt + s
+            statement_prompt = f"Select one of the attributes: {label_list_str} that describes the given text. {INJECTION_POSITION_STRING} Text: {text_seperator}"
+
+            curr_prompt = statement_prompt + s + text_seperator
             curr_prompt = prompt_factory.create("BASELINE").generate(curr_prompt)
 
             res = self.model.chat(curr_prompt)
             responses["STATEMENT_REPHRASE"].append(res)
 
-        df = pd.DataFrame()
+            df = pd.DataFrame()
+    
+            df['Samples'] = samples[:len(responses["BASELINE"])]
+            df['Labels'] = labels[:len(responses["BASELINE"])]
+    
+            for key, arr in responses.items():
+                df[key] = arr
 
-        df['Samples'] = samples
-        df['Labels'] = labels
-
-        for key, arr in responses.items():
-            df[key] = arr
+            df.to_csv("output/checkpoint.csv", index=False)
 
         return df
 
