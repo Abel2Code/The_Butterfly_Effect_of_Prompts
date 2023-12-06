@@ -25,6 +25,9 @@ def call_chat_gpt_api(*args, **kwargs):
 @retry(tries=3, delay=15)
 @timeout(30)
 def call_chat_gpt_api_no_cache(prompt, model="gpt-3.5-turbo-1106", temp=0.8, n=1, **kwargs):
+    if model in ['Llama-2-7b-chat-hf']:
+        client.base_url = "http://localhost:8000/v1"
+
     return client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],

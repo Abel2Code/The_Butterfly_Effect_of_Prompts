@@ -19,14 +19,14 @@ class Runner():
         self.special_models = special_models
         self.special_factories = [prompt_factory.create(key) for key in special_keys]
         
-    def run(self, samples, labels):
+    def run(self, samples, labels, unique_description=None, allow_explain=False):
         label_list = list(set(labels))
         label_list.sort()
         label_list_str = '"' + '", "'.join(label_list) + '"'
 
         text_seperator = "```"
         
-        prompt = f"Which one of the attributes: {label_list_str} describes a given text? {INJECTION_POSITION_STRING} Text: {text_seperator}"
+        prompt = f"Which one of the attributes: {label_list_str} describes {unique_description + ' ' if unique_description else ''}a given text? {'Do not explain yourself. ' if not allow_explain else ''}{INJECTION_POSITION_STRING} Text: {text_seperator}"
         
         responses = defaultdict(list)
         for s in tqdm(samples):
@@ -46,23 +46,23 @@ class Runner():
 
             # Bonus Experiments
             # - Prompt as a statement
-            statement_prompt = f"Select one of the attributes: {label_list_str} that describes the given text. {INJECTION_POSITION_STRING} Text: {text_seperator}"
+            statement_prompt = f"Select one of the attributes: {label_list_str} that describes {unique_description + ' ' if unique_description else ''}the given text. {'Do not explain yourself. ' if not allow_explain else ''}{INJECTION_POSITION_STRING} Text: {text_seperator}"
 
             curr_prompt = statement_prompt + s + text_seperator
-            curr_prompt = prompt_factory.create("BASELINE").generate(curr_prompt)
+            curr_prompt = prompt_factory.create("ORIGINAL").generate(curr_prompt)
 
             res = self.model.chat(curr_prompt)
             responses["STATEMENT_REPHRASE"].append(res)
 
             df = pd.DataFrame()
     
-            df['Samples'] = samples[:len(responses["BASELINE"])]
-            df['Labels'] = labels[:len(responses["BASELINE"])]
+            df['Samples'] = samples[:len(responses["ORIGINAL"])]
+            df['Labels'] = labels[:len(responses["ORIGINAL"])]
     
             for key, arr in responses.items():
                 df[key] = arr
 
-            df.to_csv("output/checkpoint.csv", index=False)
+            df.to_csv(f"output/{self.model.name}-checkpoint.csv", index=False)
 
         return df
 
