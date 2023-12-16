@@ -14,7 +14,8 @@ memory = Memory("./cache", verbose=0)
 # Load ENV variables
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPEN_AI_KEY"))
+api_key = os.getenv("OPEN_AI_KEY")
+client = OpenAI(api_key=api_key)
 
 # ChatGPT API Calls
 @memory.cache

@@ -2,12 +2,12 @@ import argparse
 import pandas as pd
 
 from runner import Runner
-from prompt_factory import prompt_factory_dict
-from model_factory import model_factory
+from prompt_tools.prompt_factory import prompt_factory_dict
+from models.model_factory import model_factory
 
 supported_models = model_factory._builders.keys()
 
-def main(in_csv_path, model_name, sample_col, label_col, output_path, include_cols, special_description, allow_explain):
+def main(in_csv_path, model_name, sample_col, label_col, output_path, include_cols, task, special_description, allow_explain):
     assert model_name in supported_models
 
     model = model_factory.create(model_name)
@@ -25,7 +25,7 @@ def main(in_csv_path, model_name, sample_col, label_col, output_path, include_co
     runner = Runner(model, factory_keys, special_col_names, special_factory_keys, special_models)
 
     in_df = pd.read_csv(in_csv_path)
-    out_df = runner.run(in_df[sample_col], in_df[label_col], special_description, allow_explain)
+    out_df = runner.run(in_df[sample_col], in_df[label_col], task=task, unique_description=special_description, allow_explain=allow_explain)
 
     out_df.to_csv(output_path, index=False) # In case include_cols crash, save what we have.
 
@@ -45,6 +45,7 @@ if __name__ == "__main__":
     parser.add_argument('-ic','--include_cols', action='append')
     parser.add_argument('-sd', '--special_description')
     parser.add_argument('-de', '--disallow_explain', action='store_true')
+    parser.add_argument('--task', default="SIMPLE_CLASSIFICATION")
 
     args = parser.parse_args()
 
@@ -56,6 +57,7 @@ if __name__ == "__main__":
     include_cols = args.include_cols if args.include_cols else []
     special_description = args.special_description
     allow_explain = not args.disallow_explain
+    task = args.task
 
     
     # in_csv_path = "datasets/test.csv"
@@ -63,4 +65,4 @@ if __name__ == "__main__":
     # label_col = "label"
     # output_path = "output/test.csv"
     
-    main(in_csv_path, model, sample_col, label_col, out_csv_path, include_cols, special_description, allow_explain)
+    main(in_csv_path, model, sample_col, label_col, out_csv_path, include_cols, task, special_description, allow_explain)

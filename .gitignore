@@ -4,5 +4,6 @@ cache
 custom_cache
 .ipynb_checkpoints
 *.ipynb
-datasets/*.csv
-output/*.csv
+datasets
+output
+parsed_output
