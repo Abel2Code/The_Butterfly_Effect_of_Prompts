@@ -120,7 +120,7 @@ def plot_bar(keys, values, save_path, should_sort=False, reverse=False, col2type
 
     plt.close()
 
-def vectorize_data(data, tasks, categories, bad_cols=BAD_COLS):
+def vectorize_data(data, tasks, categories, true_labels, bad_cols=BAD_COLS):
     output_vectors = defaultdict(list)
     for task in tasks:
         task_data = data[task]
@@ -130,7 +130,7 @@ def vectorize_data(data, tasks, categories, bad_cols=BAD_COLS):
             for cat in categories:
                 label_map = Counter({labels[0]: -1, labels[1]: 1})
                 output_vectors[cat] += [label_map[pred] for pred in task_data[cat]]
-        else:
+        elif len(labels) < 35:
             # One hot encode
             for cat in categories:
                 new_vector = []
@@ -141,10 +141,22 @@ def vectorize_data(data, tasks, categories, bad_cols=BAD_COLS):
                     new_vector.append(int(pred in bad_cols))
 
                 output_vectors[cat] += new_vector
+        else:
+            for cat in categories:
+                assert len(task_data[cat]) == len(true_labels[task])
+                label_map = Counter({True: -1, False: 1})
+                new_vector = []
+                for pred, label in zip(task_data[cat], true_labels[task]):
+                    if pred in bad_cols:
+                        new_vector.append(0)
+                    else:
+                        new_vector.append(label_map[float(pred) == float(label)])
+                output_vectors[cat] += new_vector
+
     return output_vectors
 
-def plot_pca(data, tasks, categories, save_path, type2col_map=type2col_map, type2color_map=type2color_map):
-    vector_data = vectorize_data(data, tasks, categories)
+def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2col_map, type2color_map=type2color_map):
+    vector_data = vectorize_data(data, tasks, categories, true_labels)
 
     r_type_map = {v:k for k,v_list in type2col_map.items() for v in v_list}
 

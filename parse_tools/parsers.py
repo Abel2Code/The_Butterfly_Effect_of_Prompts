@@ -301,6 +301,8 @@ def empty_string_parser(text, labels):
     
     raise Exception("String not empty")
 
+# Pasage Parsers
+
 def single_char_and_dot_search(text, labels):
     assert all(len(l) == 1 for l in labels)
 
@@ -375,5 +377,97 @@ def xml_choice_parser(text, labels):
 
     return list(labels_found)[0]
 
+# Math Parsers
+def trim_to_answer(func):
+    def trim_func(text, labels):
+        trim_strs = ["Answer:", "answer:"]
+        for s in trim_strs:
+            if s in text:
+                text = text.split(s, maxsplit=1)[1].strip()
+                break
+        return func(text, labels)
+         
+    return trim_func
+
+@trim_to_answer
+def regex_number_finder(text, labels):
+    pattern = '(-?\d+([,\.\d]+)?)'
+    matches = [m[0] for m in re.findall(pattern, text, re.IGNORECASE)]
+    matches = [m.replace(',', '') for m in matches if all(len(s) == 3 for s in m.split('.', maxsplit=1)[0].split(',')[1:])] # Check for 3 digits between commas
+    matches = [m[:-1] if m.endswith('.') else m for m in matches]
+
+    if len(matches) != 1:
+        raise Exception("No Numbers Found")
+
+    assert len(matches) == 1
+
+    match = matches[0]
+    
+    return match
+
+@trim_to_answer
+def list_number_finder(text, labels):
+    assert text.count("[") == 1 and text.count("]") == 1
+    text = text[text.index("[")+1:text.index("]")]
+    text = text.replace('"', '').replace("'", "")
+    
+    numbers_found = []
+
+    for arr_val in text.split(', '):
+        arr_val = arr_val.strip()
+        # Check for valid characters
+        if not all(c in ".,+-$" or c.isnumeric() for c in arr_val):
+            continue
+
+        # Check that comma separated numbers come 3 at a time
+        if "," in arr_val and not all(len(s) == 3 for s in arr_val.split('.', maxsplit=1)[0].split(',')[1:]):
+            continue
+        
+        arr_val = arr_val.replace(',', '').replace('$', '')
+
+        try:
+            numbers_found.append(float(arr_val))
+        except:
+            continue
+
+    if len(numbers_found) != 1:
+        raise Exception("No Numbers Found")
+
+    assert len(numbers_found) == 1
+    return numbers_found[0]
+
+@trim_to_answer
+def json_number_finder(text, labels):
+    assert text.count("{") == 1 and text.count("}") == 1
+    text = text[text.index("{")+1:text.index("}")]
+    text = "[" + text.replace(':', ',') + "]"
+
+    return list_number_finder(text, labels)
+
+@trim_to_answer
+def csv_number_finder(text, labels):
+    text = "[" + text.replace(",", ", ") + "]"
+
+    return list_number_finder(text, labels)
+
+@trim_to_answer
+def regex_find_label(text, labels):
+    assert len(labels) == 1
+    label = labels[0]
+    
+    pattern = '(-?\d+([,\.\d]+)?)'
+    matches = [m[0] for m in re.findall(pattern, text, re.IGNORECASE)]
+    matches = [m.replace(',', '') for m in matches if all(len(s) == 3 for s in m.split('.', maxsplit=1)[0].split(',')[1:])] # Check for 3 digits between commas
+    matches = [m[:-1] if m.endswith('.') else m for m in matches]
+
+    for m in matches:
+        if float(label) == float(m):
+            return label
+
+    raise Exception("Label not found")
+
+    
+
+# Invalid Parsers
 def set_invalid_parser(text, labels):
     return INVALID

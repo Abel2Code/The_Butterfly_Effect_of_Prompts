@@ -136,12 +136,29 @@ passage_choice_parser_factory = create_parser_factory({
                     backup_parsers=[p for p in JB_BACKUP_PARSERS if p not in passage_parsers_to_exclude] + passage_parsers_to_add)
 })
 
+# Number Finder
+number_finder_backups = [regex_find_label, regex_number_finder]
+number_finder_parser_factory = create_parser_factory({
+    PYTHON_TYPE: Parser(list_number_finder, 
+                        backup_parsers=number_finder_backups),
+    JSON_TYPE: Parser(json_number_finder, 
+                      backup_parsers=number_finder_backups),
+    XML_TYPE: Parser(list_number_finder, 
+                     backup_parsers=number_finder_backups),
+    CSV_TYPE: Parser(csv_number_finder, 
+                     backup_parsers=number_finder_backups),
+    YAML_TYPE: Parser(list_number_finder, 
+                      backup_parsers=number_finder_backups),
+    JB_TYPE: Parser(list_number_finder, 
+                    backup_parsers=number_finder_backups)
+})
+
 # Factory Factory
 parser_factory = Factory()
 
 parser_factory_dict = {
     "SIMPLE_CLASSIFICATION": simple_classification_parser_factory,
-    # "PROBLEM_SOLVER": ProblemSolverPrompt,
+    "PROBLEM_SOLVER": number_finder_parser_factory,
     "PASSAGE_CHOICE": passage_choice_parser_factory
 }
 

@@ -28,8 +28,8 @@ datasets = {
     # "Stance": "TweetStance",
     # "Toxicity": "Jigsaw_Toxicity"
     
-    # "Math": "MathQA",
-    "ReAd": "ReAD"
+    "Math": "MathQA",
+    # "ReAd": "ReAD"
 }
 
 dataset_types = {
@@ -46,6 +46,12 @@ dataset_types = {
     "Math": "PROBLEM_SOLVER",
     "ReAd": "PASSAGE_CHOICE"
 }
+
+label_formatters = {
+    "Math": lambda x: x if x in BAD_COLS else str(float(x))
+}
+
+ignore_label_types = ["PROBLEM_SOLVER"]
 
 COLUMNS = ['ORIGINAL', 'JSON_STYLE', 'XML_STYLE', 'CSV_STYLE',
        'YAML_STYLE', 'SPACE_BEFORE_PB', 'SPACE_AFTER_PB', 'HELLO_PB',
@@ -76,8 +82,17 @@ def analyze(model, dataset, columns, label_col):
 
     assert all(col in df for col in columns)
 
+    label_formatter = label_formatters.get(dataset, (lambda x: x))
+    df['Labels'] = df['Labels'].map(label_formatter)
+
     labels = list(set(df['Labels']))
     label_list = df['Labels']
+
+    label_list_file = os.path.join(OUTPUT_FOLDER, "label_list.json")
+    label_list_map = load_file(label_list_file)
+    label_list_map[dataset] = list(label_list)
+    with open(label_list_file, 'w') as f:
+        json.dump(label_list_map, f)
 
     # Split Jailbreaks with Multiple Personalities
     special_jailbreaks = ['DAN_JB', 'DEV_JB']
@@ -101,7 +116,7 @@ def analyze(model, dataset, columns, label_col):
     # Convert labels into special sequences
     # This prevents issues when some labels are subsets of others
     # I.E. ("Not found", "found")
-    use_special_labels = any(l1 in l2 and l1 != l2 for l1 in labels for l2 in labels)
+    use_special_labels = any(l1 in l2 and l1 != l2 for l1 in labels for l2 in labels) and dataset_types[dataset] not in ignore_label_types
     if use_special_labels:
         special_label_map = {label: f"LABEL_ITEM_NUMBER_{i}"for i, label in enumerate(labels)}
         reversed_special_label_map = {v:k for k,v in special_label_map.items()}
@@ -126,9 +141,13 @@ def analyze(model, dataset, columns, label_col):
     invalid_text = defaultdict(list)
     for i, row in df.iterrows():
         for col in columns:
+            temp_labels = special_labels if use_special_labels else labels
+            if dataset_types[dataset] == "PROBLEM_SOLVER":
+                temp_labels = [label_list[i]]
             text = row[col]
-            parsed_label = parser_dict[col].parse(text, special_labels if use_special_labels else labels)
+            parsed_label = parser_dict[col].parse(text, temp_labels)
             if use_special_labels and parsed_label in reversed_special_label_map: parsed_label = reversed_special_label_map[parsed_label]
+            parsed_label = label_formatter(parsed_label)
             extracted_labels[col].append(parsed_label)     
             
             if parsed_label == 'INVALID':
@@ -166,7 +185,7 @@ def analyze(model, dataset, columns, label_col):
 
     # Plot PCA
     pca_plot_path = os.path.join(FIGURE_FOLDER, model, f"{dataset}-PCA.png")
-    plot_pca(extracted_labels_file_json[model], [dataset], columns, pca_plot_path)
+    plot_pca(extracted_labels_file_json[model], [dataset], columns, label_list_map, pca_plot_path)
 
     # Get Overall Statistics
     overall_bars = Counter()
@@ -280,17 +299,20 @@ def aggregate_analyze(model, data_list, columns, label_col):
     plot_aggregated(labels_changed, labels_plot_path, aggregate_func=lambda arr: sum(arr), should_sort=True)
 
     # PCA
+    label_list_file = os.path.join(OUTPUT_FOLDER, "label_list.json")
+    label_list_map = load_file(label_list_file)
+    
     extracted_labels_file = "parsed_output/extracted_labels.json"
     extracted_labels = load_file(extracted_labels_file)['ChatGPT']
     aggregate_pca_plot_path = os.path.join(FIGURE_FOLDER, model, f"aggregate-PCA.png")
-    plot_pca(extracted_labels, data_list, columns, aggregate_pca_plot_path)
+    plot_pca(extracted_labels, data_list, columns, label_list_map, aggregate_pca_plot_path)
 
 def main(model, data_list, columns, label_col):
     for model in models:
         for data_name in data_list:
             analyze(model, data_name, columns, label_col)
 
-    aggregate_analyze(model, data_list, columns, label_col)
+    # aggregate_analyze(model, data_list, columns, label_col)
 
 if __name__ == "__main__":
     model = "ChatGPT"
