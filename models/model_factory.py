@@ -12,24 +12,58 @@ class OpenAI_Model:
         self.name = name
         self.kwargs = kwargs
         self.model = model
-        self.cache_file_name = f'custom_cache/{name}-{mode}.json'
+        self.mode = mode
+        self.cache = None
+        self.is_cache_initialized = False
+
+    def initialize_cache(self, task_name):
+        self.is_cache_initialized = True
+        self.cache_file_name = f'custom_cache/{self.name}/{task_name}.json'
         self.cache = load_cache(self.cache_file_name)
         
-    def chat(self, prompt, **kwargs):
-        if prompt in self.cache:
-            return self.cache[prompt]
-        else:    
+    def chat(self, prompt, key, **kwargs):
+        assert self.is_cache_initialized
+
+        if key not in self.cache:
+            self.cache[key] = {}
+        
+        if prompt in self.cache[key]:
+            return self.cache[key][prompt]
+        else:
             res = call_chat_gpt_api(prompt, temp=self.temp, n=1, model=self.model, **kwargs, **self.kwargs)
             content = res.choices[0].message.content
-            update_cache(prompt, content, self.cache_file_name, self.cache)
+            self.save_to_cache(prompt, content, key)
         return content
-    
+
+    def save_to_cache(self, prompt, content, key):
+        assert self.is_cache_initialized
+
+        if key not in self.cache:
+            self.cache[key] = {}
+        
+        if prompt in self.cache[key]:
+            assert self.cache[key][prompt] == content, (prompt, self.cache[key][prompt], content)
+        else:
+            self.cache[key][prompt] = content
+
+    def write_cache_to_file(self):
+        update_cache(self.cache_file_name, self.cache)
+        
 class RepeatPromptModel:
     def __init__(self, *args, **kwargs):
         self.name = "RepeatPromptModel"
+
+    def initialize_cache(self, task_name):
+        pass
         
-    def chat(self, prompt, **kwargs):
+    def chat(self, prompt, key, **kwargs):
         return prompt
+
+    def save_to_cache(self, *args):
+        pass
+
+    def write_cache_to_file(self, *args):
+        pass
 
 model_factory = Factory()
               

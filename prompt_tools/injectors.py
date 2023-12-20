@@ -37,4 +37,23 @@ def yaml_inject(prompt):
 def thank_you_inject(prompt):
     prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " Thank you.")
     return python_list_inject(prompt)
-    
+
+@verify_format
+def coT_inject(prompt):
+    prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " Let's think step by step.")
+    return python_list_inject(prompt)
+
+
+@verify_format
+def wont_tip_inject(prompt):
+    prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " I won't tip by the way.")
+    return python_list_inject(prompt)
+
+def tip_x_injector(x):
+    @verify_format
+    def tip_inject(prompt):
+        prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + f" I'm going to tip ${x} for a perfect response!")
+        return python_list_inject(prompt)
+
+    return tip_inject
+        

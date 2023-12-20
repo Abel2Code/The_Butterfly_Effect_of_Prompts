@@ -28,11 +28,30 @@ type2color_map = {key: (colors[i % len(colors)] if key != "ORIGINAL" else "black
 markers = ["^", "s", "P", "d", "*", "X", ">"]
 
 
-def update_cache(key, value, path, data):
-    data[key] = value
-    
-    with open(path, 'w') as file:
-            json.dump(data, file)
+def update_cache(path, data):
+    try:
+        original_data = load_cache(path)
+
+        # Verify all previous data is still there
+        for k in data:
+            if k not in original_data:
+                original_data[k] = data[k]
+                continue
+
+            for prompt in data[k]:
+                if prompt not in original_data[k]:
+                    original_data[k][prompt] = data[k][prompt]
+                else:
+                    assert original_data[k][prompt] == data[k][prompt]
+        
+        with open(path, 'w') as file:
+            json.dump(original_data, file)
+    except Exception as e:
+        file_name = path.split('/')[-1].split('.')[0]
+        with open(f"./temp-cache({file_name}).json", 'w') as file:
+                json.dump(data, file)
+
+        print(e)
 
 def load_cache(path):
     return load_file(path)

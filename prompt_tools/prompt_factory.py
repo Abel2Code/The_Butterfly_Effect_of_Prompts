@@ -134,6 +134,7 @@ prompt_factory_dict = {
     "ORIGINAL": PromptGenerator(python_list_inject, baseline_formatter),
 
     # Output Style Prompts
+    "NO_STYLE": PromptGenerator(clear_inject, baseline_formatter),
     "JSON_STYLE": PromptGenerator(json_inject, baseline_formatter),
     "XML_STYLE": PromptGenerator(xml_inject, baseline_formatter),
     "CSV_STYLE": PromptGenerator(csv_inject, baseline_formatter),
@@ -147,6 +148,11 @@ prompt_factory_dict = {
     "HOWDY_PB": PromptGenerator(python_list_inject, howdy_formatter),
     "THANK_YOU_PB": PromptGenerator(thank_you_inject, baseline_formatter),
     # MISSING SPECIAL PETURBATION: Statement Rephrasing
+    "WONT_TIP": PromptGenerator(wont_tip_inject, baseline_formatter),
+    "TIP_1": PromptGenerator(tip_x_injector(1), baseline_formatter),
+    "TIP_10": PromptGenerator(tip_x_injector(10), baseline_formatter),
+    "TIP_100": PromptGenerator(tip_x_injector(100), baseline_formatter),
+    "TIP_1000": PromptGenerator(tip_x_injector(1000), baseline_formatter),
 
     # Jailbreaks
     "AIM_JB": PromptGenerator(python_list_inject, aim_jb_formatter),
