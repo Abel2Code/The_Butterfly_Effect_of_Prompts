@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.manifold import MDS
 from sklearn.metrics import accuracy_score
 
 from parse_tools.parsers import BAD_COLS
@@ -151,37 +152,27 @@ def vectorize_data(data, tasks, categories, true_labels, bad_cols=BAD_COLS):
     for task in tasks:
         task_data = data[task]
         labels = list(set(l for arr in task_data.values() for l in arr if l not in bad_cols))
-    
-        if len(labels) == 2:
-            for cat in categories:
-                label_map = Counter({labels[0]: -1, labels[1]: 1})
-                output_vectors[cat] += [label_map[pred] for pred in task_data[cat]]
-        elif len(labels) < 35:
-            # One hot encode
-            for cat in categories:
-                new_vector = []
-                for pred in task_data[cat]:
-                    for label in labels:
-                        new_vector.append(int(label == pred))
-    
-                    new_vector.append(int(pred in bad_cols))
 
-                output_vectors[cat] += new_vector
-        else:
-            for cat in categories:
-                assert len(task_data[cat]) == len(true_labels[task])
-                label_map = Counter({True: -1, False: 1})
-                new_vector = []
-                for pred, label in zip(task_data[cat], true_labels[task]):
-                    if pred in bad_cols:
-                        new_vector.append(0)
+        
+        for cat in categories:
+            assert len(task_data[cat]) == len(true_labels[task])
+            label_map = Counter({True: -1, False: 1})
+            new_vector = []
+            for pred, label in zip(task_data[cat], true_labels[task]):
+                if pred in bad_cols:
+                    new_vector.append(0)
+                else:
+                    if task == 'Math':
+                        result = float(pred) == float(label)
                     else:
-                        new_vector.append(label_map[float(pred) == float(label)])
-                output_vectors[cat] += new_vector
+                        result = pred == label
+                        
+                    new_vector.append(label_map[result])
+            output_vectors[cat] += new_vector
 
     return output_vectors
 
-def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2col_map, type2color_map=type2color_map):
+def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2col_map, type2color_map=type2color_map, func='PCA'):
     vector_data = vectorize_data(data, tasks, categories, true_labels)
 
     r_type_map = {v:k for k,v_list in type2col_map.items() for v in v_list}
@@ -192,7 +183,13 @@ def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2
     vectors = list(vector_data.values())
     
     # Apply PCA for dimensionality reduction to 2 dimensions
-    pca = PCA(n_components=2)
+    if func == 'PCA':
+        pca = PCA(n_components=2)
+    elif func == 'MDS':
+        pca = MDS(n_components=2)
+    else:
+        raise Exception("Invalid func type")
+        
     transformed_data = pca.fit_transform(vectors)
     
     # Visualize the transformed data with annotations

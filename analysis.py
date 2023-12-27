@@ -337,10 +337,14 @@ def aggregate_analyze(model, data_list, columns, label_col):
     aggregate_pca_plot_path = os.path.join(FIGURE_FOLDER, model, f"aggregate-PCA.png")
     plot_pca(extracted_labels, data_list, columns, label_list_map, aggregate_pca_plot_path)
 
+    # MDS
+    aggregate_mds_plot_path = os.path.join(FIGURE_FOLDER, model, f"aggregate-MDS.png")
+    plot_pca(extracted_labels, data_list, columns, label_list_map, aggregate_mds_plot_path, func='MDS')
+
 def main(model, data_list, columns, label_col):
-    for model in models:
-        for data_name in data_list:
-            analyze(model, data_name, columns, label_col)
+    # for model in models:
+    #     for data_name in data_list:
+    #         analyze(model, data_name, columns, label_col)
 
     aggregate_analyze(model, data_list, columns, label_col)
 
