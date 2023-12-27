@@ -47,7 +47,7 @@ class OpenAI_Model:
             self.cache[key][prompt] = content
 
     def write_cache_to_file(self):
-        update_cache(self.cache_file_name, self.cache)
+        update_cache(self.cache_file_name, self.cache, self.name)
         
 class RepeatPromptModel:
     def __init__(self, *args, **kwargs):

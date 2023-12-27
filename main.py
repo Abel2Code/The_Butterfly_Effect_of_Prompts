@@ -70,7 +70,6 @@ if __name__ == "__main__":
     special_description = args.special_description
     allow_explain = not args.disallow_explain
     task = args.task
-
     
     # in_csv_path = "datasets/test.csv"
     # sample_col = "samples"

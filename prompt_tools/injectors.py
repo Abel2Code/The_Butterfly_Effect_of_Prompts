@@ -33,10 +33,13 @@ def yaml_inject(prompt):
     return prompt.replace(INJECTION_POSITION_STRING, "Write your answer in YAML format containing the appropriate attribute.")
 
 # Misc Injections
-@verify_format
-def thank_you_inject(prompt):
-    prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " Thank you.")
-    return python_list_inject(prompt)
+def thank_you_wrap_injector(wrapper_injector):
+    @verify_format
+    def thank_you_inject(prompt):
+        prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " Thank you.")
+        return wrapper_injector(prompt)
+
+    return thank_you_inject
 
 @verify_format
 def coT_inject(prompt):
@@ -49,11 +52,11 @@ def wont_tip_inject(prompt):
     prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " I won't tip by the way.")
     return python_list_inject(prompt)
 
-def tip_x_injector(x):
+def tip_x_injector(x, wrapper_injector):
     @verify_format
     def tip_inject(prompt):
         prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + f" I'm going to tip ${x} for a perfect response!")
-        return python_list_inject(prompt)
+        return wrapper_injector(prompt)
 
     return tip_inject
         

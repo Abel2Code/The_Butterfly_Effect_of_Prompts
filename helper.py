@@ -30,7 +30,7 @@ type2color_map = {key: (colors[i % len(colors)] if key != "ORIGINAL" else "black
 markers = ["^", "s", "P", "d", "*", "X", ">"]
 
 
-def update_cache(path, data):
+def update_cache(path, data, model_name):
     try:
         original_data = load_cache(path)
 
@@ -50,7 +50,7 @@ def update_cache(path, data):
             json.dump(original_data, file)
     except Exception as e:
         file_name = path.split('/')[-1].split('.')[0]
-        with open(f"./temp-cache({file_name}).json", 'w') as file:
+        with open(f"./temp-cache-{model_name}({file_name}).json", 'w') as file:
                 json.dump(data, file)
 
         print(e)

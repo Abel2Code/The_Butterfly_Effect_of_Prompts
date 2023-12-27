@@ -131,10 +131,9 @@ class PromptGenerator:
 prompt_factory = Factory()
               
 prompt_factory_dict = {
-    "ORIGINAL": PromptGenerator(python_list_inject, baseline_formatter),
-
     # Output Style Prompts
     "NO_STYLE": PromptGenerator(clear_inject, baseline_formatter),
+    "ORIGINAL": PromptGenerator(python_list_inject, baseline_formatter),
     "JSON_STYLE": PromptGenerator(json_inject, baseline_formatter),
     "XML_STYLE": PromptGenerator(xml_inject, baseline_formatter),
     "CSV_STYLE": PromptGenerator(csv_inject, baseline_formatter),
@@ -146,20 +145,42 @@ prompt_factory_dict = {
     "HELLO_PB": PromptGenerator(python_list_inject, hello_formatter),
     "HELLO!_PB": PromptGenerator(python_list_inject, exclamatory_hello_formatter),
     "HOWDY_PB": PromptGenerator(python_list_inject, howdy_formatter),
-    "THANK_YOU_PB": PromptGenerator(thank_you_inject, baseline_formatter),
+    "THANK_YOU_PB": PromptGenerator(thank_you_wrap_injector(python_list_inject), baseline_formatter),
     # MISSING SPECIAL PETURBATION: Statement Rephrasing
     "WONT_TIP": PromptGenerator(wont_tip_inject, baseline_formatter),
-    "TIP_1": PromptGenerator(tip_x_injector(1), baseline_formatter),
-    "TIP_10": PromptGenerator(tip_x_injector(10), baseline_formatter),
-    "TIP_100": PromptGenerator(tip_x_injector(100), baseline_formatter),
-    "TIP_1000": PromptGenerator(tip_x_injector(1000), baseline_formatter),
+    "TIP_1": PromptGenerator(tip_x_injector(1, python_list_inject), baseline_formatter),
+    "TIP_10": PromptGenerator(tip_x_injector(10, python_list_inject), baseline_formatter),
+    "TIP_100": PromptGenerator(tip_x_injector(100, python_list_inject), baseline_formatter),
+    "TIP_1000": PromptGenerator(tip_x_injector(1000, python_list_inject), baseline_formatter),
 
     # Jailbreaks
     "AIM_JB": PromptGenerator(python_list_inject, aim_jb_formatter),
     "DAN_JB": PromptGenerator(python_list_inject, dan_jb_formatter),
     "DEV_JB": PromptGenerator(python_list_inject, dev_mode_v2_jb_formatter),
     "EVIL_JB": PromptGenerator(python_list_inject, evil_confidant_formatter),
-    "REFUSAL_JB": PromptGenerator(python_list_inject, refusal_jb_formatter)
+    "REFUSAL_JB": PromptGenerator(python_list_inject, refusal_jb_formatter),
+
+    # CLEAR VERSIONS
+    # Peturbations
+    "CLEAR_SPACE_BEFORE_PB": PromptGenerator(clear_inject, space_before_formatter),
+    "CLEAR_SPACE_AFTER_PB": PromptGenerator(clear_inject, space_after_formatter),
+    "CLEAR_HELLO_PB": PromptGenerator(clear_inject, hello_formatter),
+    "CLEAR_HELLO!_PB": PromptGenerator(clear_inject, exclamatory_hello_formatter),
+    "CLEAR_HOWDY_PB": PromptGenerator(clear_inject, howdy_formatter),
+    "THANK_YOU_PB": PromptGenerator(thank_you_wrap_injector(clear_inject), baseline_formatter),
+    # MISSING SPECIAL PETURBATION: Statement Rephrasing
+    "CLEAR_WONT_TIP": PromptGenerator(clear_inject, baseline_formatter),
+    "CLEAR_TIP_1": PromptGenerator(tip_x_injector(1, clear_inject), baseline_formatter),
+    "CLEAR_TIP_10": PromptGenerator(tip_x_injector(10, clear_inject), baseline_formatter),
+    "CLEAR_TIP_100": PromptGenerator(tip_x_injector(100, clear_inject), baseline_formatter),
+    "CLEAR_TIP_1000": PromptGenerator(tip_x_injector(1000, clear_inject), baseline_formatter),
+
+    # Jailbreaks
+    "CLEAR_AIM_JB": PromptGenerator(clear_inject, aim_jb_formatter),
+    "CLEAR_DAN_JB": PromptGenerator(clear_inject, dan_jb_formatter),
+    "CLEAR_DEV_JB": PromptGenerator(clear_inject, dev_mode_v2_jb_formatter),
+    "CLEAR_EVIL_JB": PromptGenerator(clear_inject, evil_confidant_formatter),
+    "CLEAR_REFUSAL_JB": PromptGenerator(clear_inject, refusal_jb_formatter)
 }
 
 special_prompt_factory_dict = {
