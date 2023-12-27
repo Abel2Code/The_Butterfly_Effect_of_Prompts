@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 from scipy.stats import pearsonr
 
+from parse_tools.choice_parsers import choice_parsers, find_choice_text
 from parse_tools.parser_factory import parser_factory
-from parse_tools.parsers import BAD_COLS
+from parse_tools.parsers import BAD_COLS, INVALID
 from helper import load_file, accuracy_score_filtered, count_differences, plot_bar, plot_pca
 
 models = {
@@ -18,22 +19,21 @@ models = {
 }
 
 datasets = {
-    # "BoolQA": "BoolQA",
-    # "CoLA": "CoLA",
-    # "CoPA": "CoPA",
-    # "ColBERT": "ColBERT",
-    # "NLI": "SuperGlueNLI",
-    # "Sarcasm": "iSarcasm",
-    # "Sentiment": "IMDBSentiment",
-    # "Stance": "TweetStance",
-    # "Toxicity": "Jigsaw_Toxicity"
-    
+    "CoLA": "CoLA",
+    "CoPA": "CoPA",
+    "ColBERT": "ColBERT",
+    "NLI": "SuperGlueNLI",
+    "Sarcasm": "iSarcasm",
+    "Sentiment": "IMDBSentiment",
+    "Stance": "TweetStance",
+    "Toxicity": "Jigsaw_Toxicity",
+
+    "BoolQA": "BoolQA",
     "Math": "MathQA",
-    # "ReAd": "ReAD"
+    "ReAd": "ReAD"
 }
 
 dataset_types = {
-    "BoolQA": "SIMPLE_CLASSIFICATION",
     "CoLA": "SIMPLE_CLASSIFICATION",
     "CoPA": "SIMPLE_CLASSIFICATION",
     "ColBERT": "SIMPLE_CLASSIFICATION",
@@ -43,6 +43,7 @@ dataset_types = {
     "Stance": "SIMPLE_CLASSIFICATION",
     "Toxicity": "SIMPLE_CLASSIFICATION",
     
+    "BoolQA": "BOOL",
     "Math": "PROBLEM_SOLVER",
     "ReAd": "PASSAGE_CHOICE"
 }
@@ -53,10 +54,12 @@ label_formatters = {
 
 ignore_label_types = ["PROBLEM_SOLVER"]
 
-COLUMNS = ['ORIGINAL', 'JSON_STYLE', 'XML_STYLE', 'CSV_STYLE',
-       'YAML_STYLE', 'SPACE_BEFORE_PB', 'SPACE_AFTER_PB', 'HELLO_PB',
-       'HELLO!_PB', 'HOWDY_PB', 'THANK_YOU_PB', 'AIM_JB', 'DAN_JB', 'DEV_JB',
-       'EVIL_JB', 'REFUSAL_JB', 'ChatGPT_JSON_PARAM', 'STATEMENT_REPHRASE']
+COLUMNS = ['ORIGINAL', 'NO_STYLE',
+           'JSON_STYLE', 'XML_STYLE', 'CSV_STYLE',
+            'YAML_STYLE', 'SPACE_BEFORE_PB', 'SPACE_AFTER_PB', 'HELLO_PB',
+            'HELLO!_PB', 'HOWDY_PB', 'THANK_YOU_PB', 'AIM_JB', 'DAN_JB', 'DEV_JB',
+            'EVIL_JB', 'REFUSAL_JB', 'ChatGPT_JSON_PARAM', 'STATEMENT_REPHRASE',
+            "WONT_TIP", "TIP_1", "TIP_10", "TIP_100", "TIP_1000"]
 
 OUTPUT_FOLDER = "parsed_output"
 FIGURE_FOLDER = os.path.join(OUTPUT_FOLDER, "figures")
@@ -137,8 +140,9 @@ def analyze(model, dataset, columns, label_col):
             df[col] = df[col].map(process_text)
 
     # Parse Labels
+    choice_parser = choice_parsers.get(dataset, None)
     extracted_labels = defaultdict(list)
-    invalid_text = defaultdict(list)
+    invalid_text = defaultdict(lambda: defaultdict(list))
     for i, row in df.iterrows():
         for col in columns:
             temp_labels = special_labels if use_special_labels else labels
@@ -148,10 +152,18 @@ def analyze(model, dataset, columns, label_col):
             parsed_label = parser_dict[col].parse(text, temp_labels)
             if use_special_labels and parsed_label in reversed_special_label_map: parsed_label = reversed_special_label_map[parsed_label]
             parsed_label = label_formatter(parsed_label)
-            extracted_labels[col].append(parsed_label)     
+
+            if choice_parser and parsed_label in BAD_COLS:
+                choices, label_options = choice_parser(row['Samples'], labels)
+                parsed_choice_index = find_choice_text(text, choices)
+                    
+                if parsed_choice_index is not None:
+                    parsed_label = label_options[parsed_choice_index] 
+
+            extracted_labels[col].append(parsed_label)
             
-            if parsed_label == 'INVALID':
-                invalid_text[col].append(text)
+            if parsed_label in BAD_COLS:
+                invalid_text[col][parsed_label].append(text)
 
     invalid_text_file = os.path.join(OUTPUT_FOLDER, "invalid_responses.json")
     invalid_text_json = load_file(invalid_text_file)
@@ -182,6 +194,16 @@ def analyze(model, dataset, columns, label_col):
 
     with open(extracted_labels_file, 'w') as f:
         json.dump(extracted_labels_file_json, f)
+
+    # Save Number of Invalid Labels to file
+    num_invalid_labels_file = os.path.join(OUTPUT_FOLDER, "num_invalid_labels.json")
+    num_invalid_labels_file_json = load_file(num_invalid_labels_file)
+    if model not in num_invalid_labels_file_json: num_invalid_labels_file_json[model] = {}
+    num_invalid_labels = {col: len([l for l in extracted_labels[col] if l in BAD_COLS]) for col in extracted_labels}
+    num_invalid_labels_file_json[model][dataset] = num_invalid_labels
+
+    with open(num_invalid_labels_file, 'w') as f:
+        json.dump(num_invalid_labels_file_json, f)
 
     # Plot PCA
     pca_plot_path = os.path.join(FIGURE_FOLDER, model, f"{dataset}-PCA.png")
@@ -246,7 +268,7 @@ def analyze(model, dataset, columns, label_col):
         json.dump(labels_changed, f)
 
     labels_changed_plot_path = os.path.join(FIGURE_FOLDER, model, f"{dataset}-labels-changed.png")
-    plot_bar(labels_changed_scores.keys(), labels_changed_scores.values(), labels_changed_plot_path, should_sort=True)
+    plot_bar(labels_changed_scores.keys(), labels_changed_scores.values(), labels_changed_plot_path, red_values=[num_invalid_labels[k] for k in labels_changed_scores], should_sort=True)
 
     # Compute and save percent of labels changed
     perc_labels_changed_file = os.path.join(OUTPUT_FOLDER, "perc_labels_changed.json")
@@ -262,17 +284,21 @@ def analyze(model, dataset, columns, label_col):
     plot_bar(perc_labels_changed_scores.keys(), perc_labels_changed_scores.values(), perc_labels_changed_plot_path, show_value_as_perc=True, should_sort=True)
 
 def aggregate_analyze(model, data_list, columns, label_col):
-    def plot_aggregated(data, plot_path, aggregate_func=lambda arr: (sum(arr) / len(data_list)), force_start_order=[], show_value_as_perc=False, should_sort=False, reverse=False):
+    def plot_aggregated(data, plot_path, red_value_data={}, aggregate_func=lambda arr: (sum(arr) / len(data_list)), force_start_order=[], show_value_as_perc=False, should_sort=False, reverse=False):
         averaged_data = defaultdict(list)
+        total_red_values = Counter()
         for d in data_list:
             for col in columns:
                 curr_data = data[model][d]
                 if col in curr_data:
                     averaged_data[col].append(curr_data[col])
 
+                if model in red_value_data and d in red_value_data[model] and col in red_value_data[model][d]:
+                    total_red_values[col] += red_value_data[model][d][col]                    
+
         averaged_data = {k: aggregate_func(v) for k, v in averaged_data.items()}
 
-        plot_bar(averaged_data.keys(), averaged_data.values(), plot_path, show_value_as_perc=show_value_as_perc, should_sort=should_sort, reverse=reverse, force_start_order=force_start_order)
+        plot_bar(averaged_data.keys(), averaged_data.values(), plot_path, red_values=[total_red_values[k] for k in averaged_data], show_value_as_perc=show_value_as_perc, should_sort=should_sort, reverse=reverse, force_start_order=force_start_order)
         
     # Overall Accuracy
     overall_accuracy_file = os.path.join(OUTPUT_FOLDER, "overall_accuracy.json")
@@ -296,7 +322,11 @@ def aggregate_analyze(model, data_list, columns, label_col):
     labels_changed_file = os.path.join(OUTPUT_FOLDER, "labels_changed.json")
     labels_changed = load_file(labels_changed_file)
     labels_plot_path = os.path.join(FIGURE_FOLDER, model, f"aggregate-labels.png")
-    plot_aggregated(labels_changed, labels_plot_path, aggregate_func=lambda arr: sum(arr), should_sort=True)
+
+    num_invalid_labels_file = os.path.join(OUTPUT_FOLDER, "num_invalid_labels.json")
+    num_invalid_labels_file_json = load_file(num_invalid_labels_file)
+
+    plot_aggregated(labels_changed, labels_plot_path, red_value_data=num_invalid_labels_file_json, aggregate_func=lambda arr: sum(arr), should_sort=True)
 
     # PCA
     label_list_file = os.path.join(OUTPUT_FOLDER, "label_list.json")
@@ -312,7 +342,7 @@ def main(model, data_list, columns, label_col):
         for data_name in data_list:
             analyze(model, data_name, columns, label_col)
 
-    # aggregate_analyze(model, data_list, columns, label_col)
+    aggregate_analyze(model, data_list, columns, label_col)
 
 if __name__ == "__main__":
     model = "ChatGPT"

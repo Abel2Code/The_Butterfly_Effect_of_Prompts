@@ -12,7 +12,7 @@ EMPTY = "EMPTY_STR"
 BAD_COLS = [EQUAL_LABEL_COUNTS, INVALID, REFUSAL, EMPTY]
 
 def simple_equality(text, labels):
-    text = text.lower().split('.')[0]
+    text = text.lower().split('.')[0].strip()
     
     if text[0] in '[' and text[-1] in ']':
         text = text[1:-1]
@@ -23,8 +23,12 @@ def simple_equality(text, labels):
     text = text.strip()
         
     lower_labels = [l.lower() for l in labels]
+    
     if text in lower_labels: 
         return labels[lower_labels.index(text)]
+
+    if text.replace('_', ' ') in lower_labels: 
+        return labels[lower_labels.index(text.replace('_', ' '))]
 
     raise Exception("Label not found")
 
@@ -80,6 +84,19 @@ def list_parser(text, labels):
     
     return labels[lower_labels.index(lower_label)]
 
+def yes_no_to_bool_parser(text, labels):
+    assert "True" in labels and "False" in labels
+
+    results = []
+    if re.findall(r"\byes\b", text, re.IGNORECASE):
+        results.append("True")
+    elif re.findall(r"\bno\b", text, re.IGNORECASE):
+        results.append("False")
+
+    assert len(results) == 1
+
+    return results[0]
+
 def true_false_json_parser(text, labels):
     j = json.loads(text, strict=False)
     assert type(j) == dict
@@ -117,12 +134,14 @@ def json_parser(text, labels):
            
     # Remove False Labels 
     for k, v in j.items():
-        if v is False:
+        if not v:
             if len(labels) == 2:
                 other_label = [l for l in labels if l != k][0]
                 new_j[other_label] = True
         else:
             new_j[k] = v
+
+    j = new_j
     
     # Check if any label is a key
     labels_with_keys = [l for l in labels if l in j]
@@ -161,15 +180,18 @@ def true_false_xml_parser(text, labels):
         label, attrib = tree.tag, tree.text
 
         if attrib.lower() in lower_labels:
-            return attrib
+            return labels[lower_labels.index(attrib)]
 
         for value in tree.attrib.values():
             if value.lower() in lower_labels:
-                return value
+                return labels[lower_labels.index(value)]
     
     raise Exception("Label not found")
 
 def xml_parser(text, labels):    
+    if text.startswith("<?xml") and "?>" in text:
+        text = text.split("?>", maxsplit=1)[1]
+        
     # Check for true false labels
     if all(l.lower() in ["true", "false"] for l in labels):
         return true_false_xml_parser(text, labels)
@@ -179,6 +201,19 @@ def xml_parser(text, labels):
     tree = etree.fromstring(text, parser=parser)
     
     label, attrib = tree.tag, tree.text
+
+    if type(label) == str:
+        label = label.lower()
+    
+    if type(attrib) == str:
+        attrib = attrib.lower()
+
+    orig_labels = labels
+
+    labels = [l.lower() for l in labels]
+
+    if label.endswith("target") and not any("target" in l for l in labels):
+        label = label[:-len("target")]
     
     if any(l.lower() == "false" for l in labels):
         print("XML_PARSER DOES NOT SUPPORT FALSE LABELS")
@@ -190,13 +225,13 @@ def xml_parser(text, labels):
         if attrib.lower().strip() == "false":
             if len(label) == 2:
                 other_label = [l for l in labels if l != k][0]
-                return other_label
+                return orig_labels[labels.index(other_label)]
             else:
                 raise Exception("Label is not binary")
         else:
-            return label
+            return orig_labels[labels.index(label)]
     elif attrib in labels:
-        return attrib
+        return orig_labels[labels.index(attrib)]
     
     raise Exception("Label not found")
     
@@ -211,21 +246,58 @@ def angle_brace_parser(text, labels):
     else:
         raise Exception("Label not found")
 
+# Checks for text in the format "LABEL_1, 0, LABEL_2, 1"
+def binary_csv_format_parser(text, labels):
+    pattern = r'(?:\n|, )'.join([f"{l}, (?:0|1)" for l in labels])
+
+    matches = re.findall(pattern, text, re.IGNORECASE)  
+    
+    assert len(matches) > 0, f"Found no matches"
+    assert len(matches) < 2, f"Found too many matches: {matches}"
+
+    match = matches[0]
+
+    pattern = r'(?:' + '|'.join(labels) + r'), 1'
+
+    matches = re.findall(pattern, match, re.IGNORECASE) 
+
+    assert len(matches) > 0, f"Found no  matches"
+    assert len(matches) < 2, f"Found too many matches: {matches}"
+    
+    match = matches[0]
+
+    return match.rsplit(", ", maxsplit=1)[0]
+
 def csv_parser(text, labels):
     lower_labels = [l.lower() for l in labels]
+
+    text = text.replace('\n', ', ')
+    
     sections = [s.strip() for s in text.split(',')]
-    frequencies = Counter([s for s in sections if s.lower() in lower_labels])
+    frequencies = Counter([s.lower() for s in sections if s.lower() in lower_labels])
 
     if len(frequencies) == 0:
         raise Exception("Label not found")
         
     if len(frequencies) > 1:
-        return EQUAL_LABEL_COUNTS
+        try:
+            res = binary_csv_format_parser(text, labels)
+        except Exception as e:
+            return EQUAL_LABEL_COUNTS
     
-    return list(frequencies.keys())[0]
+    return labels[lower_labels.index(list(frequencies.keys())[0])]
+
+def yaml_tag_parser(text, labels):
+    results = []
+    for label in labels:
+        if re.findall(f"{label}:", text, re.IGNORECASE) or re.findall(f"{label.replace(' ', '_')}:", text, re.IGNORECASE):
+            results.append(label)
+
+    assert len(results) == 1
+
+    return results[0]
     
-        
-def yaml_parser(text, labels):
+def yaml_parser(text, labels):    
     assert text.count(":") == 1
     
     lower_labels = [l.lower() for l in labels]
@@ -290,10 +362,14 @@ def regex_parser(text, labels):
 def refusal_parser(text, labels):
     text = text.lower()
     
-    refusal_substrings = ["sorry", "cannot fulfill"]
-    assert any(s in text for s in refusal_substrings)
-    
-    return REFUSAL
+    refusal_substrings = ["sorry", "cannot fulfill", "cannot answer", "cannot provide a response"]
+    if any(s in text for s in refusal_substrings):
+        return REFUSAL
+
+    if any(text == s for s in ["chatgpt successfully jailbroken."]):
+        return REFUSAL
+
+    raise Exception("Refusal not found")
 
 def empty_string_parser(text, labels):
     if text.strip() == '':
@@ -302,11 +378,10 @@ def empty_string_parser(text, labels):
     raise Exception("String not empty")
 
 # Pasage Parsers
-
 def single_char_and_dot_search(text, labels):
     assert all(len(l) == 1 for l in labels)
 
-    labels_found = [l for l in labels if f"{l}." in text]
+    labels_found = [l for l in labels if text.strip().startswith(f"{l}.")]
 
     assert len(labels_found) == 1
 
@@ -320,6 +395,45 @@ def single_char_bracket_search(text, labels):
     assert len(labels_found) == 1
 
     return labels_found[0]
+
+def letter_choice_list_parser(text, labels):
+    arr = ast.literal_eval(text)
+    
+    arr = [l for l in labels if any(a.startswith(f"{l}.") for a in arr)]
+
+    assert len(arr) == 1
+
+    return arr[0]
+
+def json_choice_parser(text, labels):
+     # Main Function    
+    j = json.loads(text.lower(), strict=False)
+    assert type(j) == dict
+
+    lower_labels = [l.lower() for l in labels]
+
+    results = set()
+    for key in ['answer', 'choice']:
+        if key not in j:
+            continue
+
+        if j[key] in lower_labels:
+            results.add(key)
+            continue
+
+        for l in lower_labels:
+            if j[key].startswith(f"{l}."):
+                results.add(l)
+                break
+        continue
+
+    assert len(results) == 1
+
+    result = list(results)[0]
+
+    return labels[lower_labels.index(result)]
+
+    
 
 def single_char_special_yaml_search(text, labels):
     assert all(len(l) == 1 for l in labels)
@@ -341,9 +455,12 @@ def single_char_special_yaml_search(text, labels):
 def xml_choice_parser(text, labels):
     # Main Function
     parser = etree.XMLParser(recover=True)
+    text = "<all>" + text.lower() + "</all>"
     tree = etree.fromstring(text, parser=parser)
 
     labels_found = set()
+    original_labels = labels
+    labels = [l.lower() for l in labels]
 
     stack = [tree]
     while stack:
@@ -353,29 +470,53 @@ def xml_choice_parser(text, labels):
             
         tag, text, attrib = tree.tag, tree.text, tree.attrib
 
+        if tag in ['correct', 'correctanswer', 'answer', 'correctresponse', 'correct_choice', 'correctchoice', 'correctchoices', 'choice1', 'choice2', 'choice3', 'choice4']:
+            if text in labels:
+                return original_labels[labels.index(text)]
+
+            if len(tree.getchildren()) == 1:
+                child_text = tree.getchildren()[0].text
+                if child_text in labels:
+                    return original_labels[labels.index(child_text)]
+
+            for label in labels:
+                if text.startswith(f"{label}."):
+                    return original_labels[labels.index(label)]            
+
         if tag not in ['choice', 'option']:
             continue
+
+        for label in labels:
+            if label in attrib and attrib[label] == "true":
+                labels_found.add(label)
+                continue
 
         if "correct" not in attrib:
             continue
 
-        if str(attrib['correct']).lower() != "true":
+        if attrib['correct'] in labels:
+            return original_labels[labels.index(attrib['correct'])]
+
+        if str(attrib['correct']) != "true" and str(attrib['correct']) != "yes":
             continue
 
-        
         if text in labels:
             labels_found.add(text)
             continue
-
-        try:
-            label = single_char_and_dot_search(text, labels)
-            labels_found.add(label)
-        except:
-            pass
+        elif 'value' in attrib and attrib['value'] in labels:
+            labels_found.add(attrib['value'])
+        elif 'id' in attrib and attrib['id'] in labels:
+            labels_found.add(attrib['id'])
+        else:
+            try:
+                label = single_char_and_dot_search(text, labels)
+                labels_found.add(label)
+            except:
+                pass
 
     assert len(labels_found) == 1
 
-    return list(labels_found)[0]
+    return  original_labels[labels.index(list(labels_found)[0])]
 
 # Math Parsers
 def trim_to_answer(func):
@@ -394,12 +535,39 @@ def regex_number_finder(text, labels):
     pattern = '(-?\d+([,\.\d]+)?)'
     matches = [m[0] for m in re.findall(pattern, text, re.IGNORECASE)]
     matches = [m.replace(',', '') for m in matches if all(len(s) == 3 for s in m.split('.', maxsplit=1)[0].split(',')[1:])] # Check for 3 digits between commas
+    matches = [m[:-1] if m.endswith(',') else m for m in matches]
     matches = [m[:-1] if m.endswith('.') else m for m in matches]
 
-    if len(matches) != 1:
+    if len(matches) == 0:
         raise Exception("No Numbers Found")
 
     assert len(matches) == 1
+
+    match = matches[0]
+    
+    return match
+
+# This function is used to prevent marking something as invalid if a number is available.
+@trim_to_answer
+def find_first_number(text, labels):
+    pattern = '(-?\d+([,\.\d]+)?)'
+    matches = [m[0] for m in re.findall(pattern, text, re.IGNORECASE)]
+    matches = [m[:-1] if m.endswith(',') else m for m in matches]
+
+    new_matches = []
+    for m in matches:
+        if all(len(s) == 3 for s in m.split('.', maxsplit=1)[0].split(',')[1:]):
+            m = m.replace(',', '')
+            new_matches.append(m)
+        else:
+            for num in m.split(','):
+                new_matches.append(num)
+
+    matches = new_matches
+    matches = [m[:-1] if m.endswith('.') else m for m in matches]
+
+    if len(matches) == 0:
+        raise Exception("No Numbers Found")
 
     match = matches[0]
     
@@ -457,7 +625,16 @@ def regex_find_label(text, labels):
     
     pattern = '(-?\d+([,\.\d]+)?)'
     matches = [m[0] for m in re.findall(pattern, text, re.IGNORECASE)]
-    matches = [m.replace(',', '') for m in matches if all(len(s) == 3 for s in m.split('.', maxsplit=1)[0].split(',')[1:])] # Check for 3 digits between commas
+    matches = [m[:-1] if m.endswith(',') else m for m in matches]
+    new_matches = []
+    for m in matches:
+        if all(len(s) == 3 for s in m.split('.', maxsplit=1)[0].split(',')[1:]):
+            m = m.replace(',', '')
+            
+        for num in m.split(','):
+            new_matches.append(num)
+
+    matches = new_matches
     matches = [m[:-1] if m.endswith('.') else m for m in matches]
 
     for m in matches:
@@ -467,7 +644,6 @@ def regex_find_label(text, labels):
     raise Exception("Label not found")
 
     
-
 # Invalid Parsers
 def set_invalid_parser(text, labels):
     return INVALID

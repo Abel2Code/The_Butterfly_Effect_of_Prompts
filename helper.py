@@ -16,10 +16,11 @@ from parse_tools.parsers import BAD_COLS
 colors = plt.get_cmap('Dark2').colors  # Get colors from 'tab20' colormap
 type2col_map = {
     "ORIGINAL": ["ORIGINAL"],
-    "STYLES": ["JSON_STYLE", "ChatGPT_JSON_PARAM", "XML_STYLE", "CSV_STYLE", "YAML_STYLE"],
+    "STYLES": ["JSON_STYLE", "ChatGPT_JSON_PARAM", "XML_STYLE", "CSV_STYLE", "YAML_STYLE", "NO_STYLE"],
     "PB": ["SPACE_BEFORE_PB", "SPACE_AFTER_PB", "HELLO_PB", "HELLO!_PB", "HOWDY_PB", "THANK_YOU_PB"],
     "Special Cases": ["STATEMENT_REPHRASE"],
-    "JB": ["AIM_JB", "EVIL_JB", "REFUSAL_JB", "DAN_JB", "DEV_JB"]
+    "JB": ["AIM_JB", "EVIL_JB", "REFUSAL_JB", "DAN_JB", "DEV_JB"],
+    "TIP": ["WONT_TIP", "TIP_1", "TIP_10", "TIP_100", "TIP_1000"]
 }
 
 col2type_map = {v:k for k,v_list in type2col_map.items() for v in v_list}
@@ -96,14 +97,18 @@ def count_differences(label_list, values):
         return sum(1 for k1, k2 in zip(label_list, values) if k1 != k2)
 
 
-def plot_bar(keys, values, save_path, should_sort=False, reverse=False, col2type_map=col2type_map, type2color_map=type2color_map, figsize=(10, 6), show_values=True, show_value_as_perc=False, y_label=None, title=None, force_start_order=[]):
+def plot_bar(keys, values, save_path, red_values=None, should_sort=False, reverse=False, col2type_map=col2type_map, type2color_map=type2color_map, figsize=(10, 6), show_values=True, show_value_as_perc=False, y_label=None, title=None, force_start_order=[]):
     assert bool(col2type_map) == bool(type2color_map)
+
+    if red_values is None:
+        red_values = [0 for _ in values]
     
     if should_sort:
-        combined = list(zip(keys, values))        
+        combined = list(zip(keys, values, red_values))        
         sorted_combined = sorted(combined, key=lambda x: x[1], reverse=reverse)
         keys = [x[0] for x in sorted_combined]
         values = [x[1] for x in sorted_combined]
+        red_values = [x[2] for x in sorted_combined]
 
     if force_start_order:
         for k in force_start_order:
@@ -115,6 +120,8 @@ def plot_bar(keys, values, save_path, should_sort=False, reverse=False, col2type
     plt.figure(figsize=figsize)  # Adjust the figure size if needed
     colors = [type2color_map[col2type_map[k]] for k in keys] if type2color_map else None
     plt.bar(keys, values, color=colors)
+
+    plt.bar(keys, red_values, color='red')
     
     # Add values above each bar
     if show_values:
@@ -191,9 +198,7 @@ def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2
     # Visualize the transformed data with annotations
     plt.figure(figsize=(8, 6))
     type_map_keys = list(type2col_map)
-    
-    colors = plt.get_cmap('Dark2').colors  # Get colors from 'tab20' colormap
-    
+        
     for i, key in enumerate(keys):
         x, y = transformed_data[i]
         
