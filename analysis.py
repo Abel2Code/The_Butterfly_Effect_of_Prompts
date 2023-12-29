@@ -12,7 +12,7 @@ from scipy.stats import pearsonr
 from parse_tools.choice_parsers import choice_parsers, find_choice_text
 from parse_tools.parser_factory import parser_factory
 from parse_tools.parsers import BAD_COLS, INVALID
-from helper import load_file, accuracy_score_filtered, count_differences, plot_bar, plot_pca
+from helper import load_file, accuracy_score_filtered, count_differences, plot_bar, plot_pca, type2col_map
 
 models = {
     "ChatGPT": "ChatGPT",
@@ -57,9 +57,11 @@ ignore_label_types = ["PROBLEM_SOLVER"]
 COLUMNS = ['ORIGINAL', 'NO_STYLE',
            'JSON_STYLE', 'XML_STYLE', 'CSV_STYLE',
             'YAML_STYLE', 'SPACE_BEFORE_PB', 'SPACE_AFTER_PB', 'HELLO_PB',
-            'HELLO!_PB', 'HOWDY_PB', 'THANK_YOU_PB', 'AIM_JB', 'DAN_JB', 'DEV_JB',
+            'HELLO!_PB', 'HOWDY_PB', 'THANK_YOU_PB', 'AIM_JB', 'DEV_JB', # 'DAN_JB',
             'EVIL_JB', 'REFUSAL_JB', 'ChatGPT_JSON_PARAM', 'STATEMENT_REPHRASE',
             "WONT_TIP", "TIP_1", "TIP_10", "TIP_100", "TIP_1000"]
+
+STYLE_COLS = {col for col in type2col_map['Styles']}
 
 OUTPUT_FOLDER = "parsed_output"
 FIGURE_FOLDER = os.path.join(OUTPUT_FOLDER, "figures")
@@ -256,25 +258,36 @@ def analyze(model, dataset, columns, label_col):
     plot_bar(filtered_accuracy_scores.keys(), filtered_accuracy_scores.values(), filtered_accuracy_plot_path, show_value_as_perc=True, should_sort=True, reverse=True, force_start_order=['ORIGINAL'])
 
     # Compute and save number of labels changed
-    baseline_labels = extracted_labels['ORIGINAL']
-    
-    labels_changed_file = os.path.join(OUTPUT_FOLDER, "labels_changed.json")
-    labels_changed = load_file(labels_changed_file)
-    if model not in labels_changed: labels_changed[model] = {}
-    labels_changed_scores = {key: count_differences(baseline_labels, extracted_labels[key]) for key in extracted_labels if key != 'ORIGINAL'}
-    labels_changed[model][dataset] = labels_changed_scores
+    python_labels_changed_file = os.path.join(OUTPUT_FOLDER, "python_labels_changed.json")
+    python_labels_changed = load_file(python_labels_changed_file)
+    if model not in python_labels_changed: python_labels_changed[model] = {}
+    python_labels_changed_scores = {key: count_differences(extracted_labels['ORIGINAL'], extracted_labels[key]) for key in extracted_labels if key != 'ORIGINAL'}
+    python_labels_changed[model][dataset] = python_labels_changed_scores
 
-    with open(labels_changed_file, 'w') as f:
-        json.dump(labels_changed, f)
+    with open(python_labels_changed_file, 'w') as f:
+        json.dump(python_labels_changed, f)
 
-    labels_changed_plot_path = os.path.join(FIGURE_FOLDER, model, f"{dataset}-labels-changed.png")
-    plot_bar(labels_changed_scores.keys(), labels_changed_scores.values(), labels_changed_plot_path, red_values=[num_invalid_labels[k] for k in labels_changed_scores], should_sort=True)
+    python_labels_changed_plot_path = os.path.join(FIGURE_FOLDER, model, f"{dataset}-python-labels-changed.png")
+    plot_bar(python_labels_changed_scores.keys(), python_labels_changed_scores.values(), python_labels_changed_plot_path, red_values=[num_invalid_labels[k] for k in python_labels_changed_scores], should_sort=True)
+
+    # Compute and save number of labels changed from styles
+    style_labels_changed_file = os.path.join(OUTPUT_FOLDER, "style_labels_changed.json")
+    style_labels_changed = load_file(style_labels_changed_file)
+    if model not in style_labels_changed: style_labels_changed[model] = {}
+    style_labels_changed_scores = {key: count_differences(extracted_labels['NO_STYLE'], extracted_labels[key]) for key in extracted_labels if key != 'NO_STYLE'}
+    style_labels_changed[model][dataset] = style_labels_changed_scores
+
+    with open(style_labels_changed_file, 'w') as f:
+        json.dump(style_labels_changed, f)
+
+    style_labels_changed_plot_path = os.path.join(FIGURE_FOLDER, model, f"{dataset}-style-labels-changed.png")
+    plot_bar(style_labels_changed_scores.keys(), style_labels_changed_scores.values(), style_labels_changed_plot_path, red_values=[num_invalid_labels[k] for k in style_labels_changed_scores], should_sort=True)
 
     # Compute and save percent of labels changed
     perc_labels_changed_file = os.path.join(OUTPUT_FOLDER, "perc_labels_changed.json")
     perc_labels_changed = load_file(perc_labels_changed_file)
     if model not in perc_labels_changed: perc_labels_changed[model] = {}
-    perc_labels_changed_scores = {key: (count_differences(baseline_labels, extracted_labels[key]) / len(df)) for key in extracted_labels if key != 'ORIGINAL'}
+    perc_labels_changed_scores = {key: (count_differences(extracted_labels['ORIGINAL'], extracted_labels[key]) / len(df)) for key in extracted_labels if key != 'ORIGINAL'}
     perc_labels_changed[model][dataset] = perc_labels_changed_scores
 
     with open(perc_labels_changed_file, 'w') as f:
@@ -284,7 +297,7 @@ def analyze(model, dataset, columns, label_col):
     plot_bar(perc_labels_changed_scores.keys(), perc_labels_changed_scores.values(), perc_labels_changed_plot_path, show_value_as_perc=True, should_sort=True)
 
 def aggregate_analyze(model, data_list, columns, label_col):
-    def plot_aggregated(data, plot_path, red_value_data={}, aggregate_func=lambda arr: (sum(arr) / len(data_list)), force_start_order=[], show_value_as_perc=False, should_sort=False, reverse=False):
+    def plot_aggregated(data, plot_path, red_value_data={}, variations=[], aggregate_func=lambda arr: (sum(arr) / len(data_list)), force_start_order=[], show_value_as_perc=False, should_sort=False, reverse=False):
         averaged_data = defaultdict(list)
         total_red_values = Counter()
         for d in data_list:
@@ -296,7 +309,7 @@ def aggregate_analyze(model, data_list, columns, label_col):
                 if model in red_value_data and d in red_value_data[model] and col in red_value_data[model][d]:
                     total_red_values[col] += red_value_data[model][d][col]                    
 
-        averaged_data = {k: aggregate_func(v) for k, v in averaged_data.items()}
+        averaged_data = {k: aggregate_func(v) for k, v in averaged_data.items() if not variations or k in variations}
 
         plot_bar(averaged_data.keys(), averaged_data.values(), plot_path, red_values=[total_red_values[k] for k in averaged_data], show_value_as_perc=show_value_as_perc, should_sort=should_sort, reverse=reverse, force_start_order=force_start_order)
         
@@ -319,14 +332,18 @@ def aggregate_analyze(model, data_list, columns, label_col):
     plot_aggregated(perc_labels_changed, perc_labels_plot_path, show_value_as_perc=True, should_sort=True)
     
     # Overall Labels Changed
-    labels_changed_file = os.path.join(OUTPUT_FOLDER, "labels_changed.json")
-    labels_changed = load_file(labels_changed_file)
-    labels_plot_path = os.path.join(FIGURE_FOLDER, model, f"aggregate-labels.png")
-
     num_invalid_labels_file = os.path.join(OUTPUT_FOLDER, "num_invalid_labels.json")
     num_invalid_labels_file_json = load_file(num_invalid_labels_file)
+    
+    python_labels_changed_file = os.path.join(OUTPUT_FOLDER, "python_labels_changed.json")
+    python_labels_changed = load_file(python_labels_changed_file)
+    python_labels_plot_path = os.path.join(FIGURE_FOLDER, model, f"aggregate-python-labels.png")
+    plot_aggregated(python_labels_changed, python_labels_plot_path, red_value_data=num_invalid_labels_file_json, variations=[col for col in COLUMNS if col not in STYLE_COLS], aggregate_func=lambda arr: sum(arr), should_sort=True)
 
-    plot_aggregated(labels_changed, labels_plot_path, red_value_data=num_invalid_labels_file_json, aggregate_func=lambda arr: sum(arr), should_sort=True)
+    styles_only_labels_changed_file = os.path.join(OUTPUT_FOLDER, "style_labels_changed.json")
+    styles_only_labels_changed = load_file(styles_only_labels_changed_file)
+    styles_only_labels_plot_path = os.path.join(FIGURE_FOLDER, model, f"aggregate-labels-styles-only.png")
+    plot_aggregated(styles_only_labels_changed, styles_only_labels_plot_path, variations=STYLE_COLS, red_value_data=num_invalid_labels_file_json, aggregate_func=lambda arr: sum(arr), should_sort=True)
 
     # PCA
     label_list_file = os.path.join(OUTPUT_FOLDER, "label_list.json")

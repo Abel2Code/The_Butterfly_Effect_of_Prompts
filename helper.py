@@ -16,19 +16,53 @@ from parse_tools.parsers import BAD_COLS
 
 colors = plt.get_cmap('Dark2').colors  # Get colors from 'tab20' colormap
 type2col_map = {
-    "ORIGINAL": ["ORIGINAL"],
-    "STYLES": ["JSON_STYLE", "ChatGPT_JSON_PARAM", "XML_STYLE", "CSV_STYLE", "YAML_STYLE", "NO_STYLE"],
-    "PB": ["SPACE_BEFORE_PB", "SPACE_AFTER_PB", "HELLO_PB", "HELLO!_PB", "HOWDY_PB", "THANK_YOU_PB"],
-    "Special Cases": ["STATEMENT_REPHRASE"],
-    "JB": ["AIM_JB", "EVIL_JB", "REFUSAL_JB", "DAN_JB", "DEV_JB"],
-    "TIP": ["WONT_TIP", "TIP_1", "TIP_10", "TIP_100", "TIP_1000"]
+    "Styles": ["ORIGINAL", "JSON_STYLE", "ChatGPT_JSON_PARAM", "XML_STYLE", "CSV_STYLE", "YAML_STYLE", "NO_STYLE"],
+    "Peturbations": ["SPACE_BEFORE_PB", "SPACE_AFTER_PB", "HELLO_PB", "HELLO!_PB", "HOWDY_PB", "THANK_YOU_PB", "STATEMENT_REPHRASE"],
+    "Special Cases": [],
+    "Jailbreaks": ["AIM_JB", "EVIL_JB", "REFUSAL_JB", "DAN_JB", "DEV_JB"],
+    "Tipping": ["WONT_TIP", "TIP_1", "TIP_10", "TIP_100", "TIP_1000"]
 }
 
 col2type_map = {v:k for k,v_list in type2col_map.items() for v in v_list}
-type2color_map = {key: (colors[i % len(colors)] if key != "ORIGINAL" else "black") for i, key in enumerate(type2col_map.keys())}
+type2color_map = {key: (colors[i % len(colors) + 1] if key != "ORIGINAL" else "black") for i, key in enumerate(type2col_map.keys())}
 
 markers = ["^", "s", "P", "d", "*", "X", ">"]
 
+clean_name_map = {
+    'ORIGINAL': 'Python List Format',
+    'THANK_YOU_PB': "Say \"Thank you\"",
+    "NO_STYLE": "No Specified Format",
+    'CSV_STYLE': "CSV Format",
+    'SPACE_AFTER_PB': "End with Space",
+    'SPACE_BEFORE_PB': "Start with Space",
+    'HOWDY_PB': "Start with \"Howdy!\"",
+    'HELLO_PB': "Start with \"Hello.\"",
+    'HELLO!_PB': "Start with \"Hello!\"",
+    'STATEMENT_REPHRASE': "Rephrase as Statement",
+    'JSON_STYLE': "JSON Format",
+    'REFUSAL_JB': "Refusal Suppression",
+    'XML_STYLE': "XML Format",
+    'ChatGPT_JSON_PARAM': "ChatGPT's JSON Parameter",
+    'YAML_STYLE': "YAML Format",
+    
+    # Jailbreaks
+    'DAN_JB': "Do Anything Now",
+    'DEV_JB': "Dev Mode v2",
+    'EVIL_JB': "Evil Confidant",
+    'AIM_JB': "AIM",
+    # 'DAN_JB_JAILBREAK': "Do Anything Now 2",
+    # 'DEV_JB_JAILBREAK': "Developer Mode 2",
+    # 'DAN_JB_CLASSIC': "Do Anything Now 1",
+    # 'DEV_JB_CLASSIC': "Developer Mode 1",
+
+    # Tipping
+    "WONT_TIP": "Won't Tip",
+    "TIP_1": "Tip $1",
+    "TIP_10": "Tip $10",
+    "TIP_100": "Tip $100",
+    "TIP_1000": "Tip $1000",
+}
+    
 
 def update_cache(path, data, model_name):
     try:
@@ -120,9 +154,11 @@ def plot_bar(keys, values, save_path, red_values=None, should_sort=False, revers
         
     plt.figure(figsize=figsize)  # Adjust the figure size if needed
     colors = [type2color_map[col2type_map[k]] for k in keys] if type2color_map else None
-    plt.bar(keys, values, color=colors)
 
-    plt.bar(keys, red_values, color='red')
+    formatted_keys = [clean_name_map[k] for k in keys]
+    plt.bar(formatted_keys, values, color=colors)
+
+    plt.bar(formatted_keys, red_values, color='red')
     
     # Add values above each bar
     if show_values:
@@ -139,7 +175,9 @@ def plot_bar(keys, values, save_path, red_values=None, should_sort=False, revers
     plt.xticks(rotation=75, ha="right")  # Rotate x-axis labels for better readability if needed
 
     if type2color_map:
-        plt.legend(handles=[mpatches.Patch(color=c, label=k) for k, c in type2color_map.items()], loc='center left', bbox_to_anchor=(1, 0.5))
+        patches = [mpatches.Patch(color=c, label=k) for k, c in type2color_map.items() if any(key in type2col_map[k] for key in keys)]
+        if len(patches) > 1:
+            plt.legend(handles=patches, loc='center left', bbox_to_anchor=(1, 0.5))
     
     plt.tight_layout()
     
@@ -172,7 +210,7 @@ def vectorize_data(data, tasks, categories, true_labels, bad_cols=BAD_COLS):
 
     return output_vectors
 
-def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2col_map, type2color_map=type2color_map, func='PCA'):
+def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2col_map, type2color_map=type2color_map, black_key=None, func='PCA'):
     vector_data = vectorize_data(data, tasks, categories, true_labels)
 
     r_type_map = {v:k for k,v_list in type2col_map.items() for v in v_list}
@@ -184,9 +222,9 @@ def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2
     
     # Apply PCA for dimensionality reduction to 2 dimensions
     if func == 'PCA':
-        pca = PCA(n_components=2)
+        pca = PCA(n_components=2, random_state=60)
     elif func == 'MDS':
-        pca = MDS(n_components=2)
+        pca = MDS(n_components=2, random_state=60)
     else:
         raise Exception("Invalid func type")
         
@@ -195,15 +233,21 @@ def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2
     # Visualize the transformed data with annotations
     plt.figure(figsize=(8, 6))
     type_map_keys = list(type2col_map)
+
+    if black_key in keys:
+        x, y = transformed_data[keys.index(black_key)]
+        plt.scatter(x, y, label=clean_name_map[black_key], marker="o", color='black')
         
     for i, key in enumerate(keys):
+        if key == black_key:
+            continue
+            
         x, y = transformed_data[i]
         
         key_type = r_type_map[key]
-        marker = markers[type2col_map[key_type].index(key)] if key != "ORIGINAL" else "o"
+        marker = markers[type2col_map[key_type].index(key)]
         
-        plt.scatter(x, y, label=key, marker=marker, color=type2color_map[key_type])
-        # plt.text(x, y, key, fontsize=9, ha='right', va='bottom')
+        plt.scatter(x, y, label=clean_name_map[key], marker=marker, color=type2color_map[key_type])
     
     plt.title('Similarity of N-dimensional Vectors')
     plt.xlabel('Principal Component 1')

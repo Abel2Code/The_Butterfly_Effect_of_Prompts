@@ -155,7 +155,7 @@ prompt_factory_dict = {
 
     # Jailbreaks
     "AIM_JB": PromptGenerator(python_list_inject, aim_jb_formatter),
-    "DAN_JB": PromptGenerator(python_list_inject, dan_jb_formatter),
+    # "DAN_JB": PromptGenerator(python_list_inject, dan_jb_formatter),
     "DEV_JB": PromptGenerator(python_list_inject, dev_mode_v2_jb_formatter),
     "EVIL_JB": PromptGenerator(python_list_inject, evil_confidant_formatter),
     "REFUSAL_JB": PromptGenerator(python_list_inject, refusal_jb_formatter),
@@ -177,7 +177,7 @@ prompt_factory_dict = {
 
     # Jailbreaks
     "CLEAR_AIM_JB": PromptGenerator(clear_inject, aim_jb_formatter),
-    "CLEAR_DAN_JB": PromptGenerator(clear_inject, dan_jb_formatter),
+    # "CLEAR_DAN_JB": PromptGenerator(clear_inject, dan_jb_formatter),
     "CLEAR_DEV_JB": PromptGenerator(clear_inject, dev_mode_v2_jb_formatter),
     "CLEAR_EVIL_JB": PromptGenerator(clear_inject, evil_confidant_formatter),
     "CLEAR_REFUSAL_JB": PromptGenerator(clear_inject, refusal_jb_formatter)
