@@ -147,7 +147,7 @@ prompt_factory_dict = {
     "HOWDY_PB": PromptGenerator(python_list_inject, howdy_formatter),
     "THANK_YOU_PB": PromptGenerator(thank_you_wrap_injector(python_list_inject), baseline_formatter),
     # MISSING SPECIAL PETURBATION: Statement Rephrasing
-    "WONT_TIP": PromptGenerator(wont_tip_inject, baseline_formatter),
+    "WONT_TIP": PromptGenerator(wont_tip_injector(python_list_inject), baseline_formatter),
     "TIP_1": PromptGenerator(tip_x_injector(1, python_list_inject), baseline_formatter),
     "TIP_10": PromptGenerator(tip_x_injector(10, python_list_inject), baseline_formatter),
     "TIP_100": PromptGenerator(tip_x_injector(100, python_list_inject), baseline_formatter),
@@ -167,9 +167,9 @@ prompt_factory_dict = {
     "CLEAR_HELLO_PB": PromptGenerator(clear_inject, hello_formatter),
     "CLEAR_HELLO!_PB": PromptGenerator(clear_inject, exclamatory_hello_formatter),
     "CLEAR_HOWDY_PB": PromptGenerator(clear_inject, howdy_formatter),
-    "THANK_YOU_PB": PromptGenerator(thank_you_wrap_injector(clear_inject), baseline_formatter),
+    "CLEAR_THANK_YOU_PB": PromptGenerator(thank_you_wrap_injector(clear_inject), baseline_formatter),
     # MISSING SPECIAL PETURBATION: Statement Rephrasing
-    "CLEAR_WONT_TIP": PromptGenerator(clear_inject, baseline_formatter),
+    "CLEAR_WONT_TIP": PromptGenerator(wont_tip_injector(clear_inject), baseline_formatter),
     "CLEAR_TIP_1": PromptGenerator(tip_x_injector(1, clear_inject), baseline_formatter),
     "CLEAR_TIP_10": PromptGenerator(tip_x_injector(10, clear_inject), baseline_formatter),
     "CLEAR_TIP_100": PromptGenerator(tip_x_injector(100, clear_inject), baseline_formatter),

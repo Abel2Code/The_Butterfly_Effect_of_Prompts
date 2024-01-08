@@ -96,7 +96,30 @@ def generate_parser_factory_dict(parser_type_dict):
         "TIP_1": parser_type_dict[PYTHON_TYPE],
         "TIP_10": parser_type_dict[PYTHON_TYPE],
         "TIP_100": parser_type_dict[PYTHON_TYPE],
-        "TIP_1000": parser_type_dict[PYTHON_TYPE]
+        "TIP_1000": parser_type_dict[PYTHON_TYPE],
+
+        # Clear
+        "CLEAR_SPACE_BEFORE_PB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_SPACE_AFTER_PB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_HELLO_PB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_HELLO!_PB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_HOWDY_PB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_THANK_YOU_PB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_STATEMENT_REPHRASE": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_WONT_TIP": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_TIP_1": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_TIP_10": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_TIP_100": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_TIP_1000": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_AIM_JB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_DEV_JB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_EVIL_JB": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_REFUSAL_JB" : parser_type_dict[NO_STYLE_TYPE],
+
+        "CLEAR_DAN_JB_CLASSIC": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_DEV_JB_CLASSIC": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_DAN_JB_JAILBREAK": parser_type_dict[NO_STYLE_TYPE],
+        "CLEAR_DEV_JB_JAILBREAK": parser_type_dict[NO_STYLE_TYPE],
     }
 
 def create_parser_factory(parser_type_dict):
@@ -108,7 +131,7 @@ def create_parser_factory(parser_type_dict):
 
     return factory
 
-NO_STYLE_BACKUP_PARSERS = [regex_parser]
+NO_STYLE_BACKUP_PARSERS = [regex_parser, refusal_parser, empty_string_parser]
 PYTHON_BACKUP_PARSERS = [simple_equality, regex_parser]
 JSON_BACKUP_PARSERS = [list_parser, regex_parser]
 XML_BACKUP_PARSERS = [angle_brace_parser, quote_finder, regex_parser]
@@ -147,7 +170,7 @@ passage_choice_parser_factory = create_parser_factory({
     JB_TYPE: Parser(list_parser, 
                     backup_parsers=[p for p in JB_BACKUP_PARSERS if p not in passage_parsers_to_exclude] + passage_parsers_to_add + jb_fail_parsers),
     NO_STYLE_TYPE: Parser(list_parser, 
-                          backup_parsers=[p for p in NO_STYLE_BACKUP_PARSERS if p not in passage_parsers_to_exclude] + passage_parsers_to_add)
+                          backup_parsers=[p for p in NO_STYLE_BACKUP_PARSERS if p not in passage_parsers_to_exclude] + passage_parsers_to_add + jb_fail_parsers)
 })
 
 # Number Finder
@@ -165,7 +188,7 @@ number_finder_parser_factory = create_parser_factory({
                       backup_parsers=number_finder_backups),
     JB_TYPE: Parser(list_number_finder, 
                     backup_parsers=number_finder_backups + jb_fail_parsers),
-    NO_STYLE_TYPE: Parser(list_number_finder, backup_parsers=number_finder_backups)
+    NO_STYLE_TYPE: Parser(list_number_finder, backup_parsers=number_finder_backups + jb_fail_parsers)
 })
 
 bool_parsers_to_add = [yes_no_to_bool_parser]
@@ -183,7 +206,7 @@ bool_parser_factory = create_parser_factory({
     JB_TYPE: Parser(list_parser, 
                     backup_parsers=JB_BACKUP_PARSERS + bool_parsers_to_add + jb_fail_parsers),
     NO_STYLE_TYPE: Parser(list_parser, 
-                          backup_parsers=NO_STYLE_BACKUP_PARSERS + bool_parsers_to_add)
+                          backup_parsers=NO_STYLE_BACKUP_PARSERS + bool_parsers_to_add + jb_fail_parsers)
 })
 
 

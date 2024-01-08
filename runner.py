@@ -72,6 +72,18 @@ class Runner():
                 res = self.model.chat(curr_prompt, key)
             responses[key].append(res)
 
+            key = "CLEAR_STATEMENT_REPHRASE"
+            statement_factory = prompt_factory.create("NO_STYLE")
+            curr_prompt = statement_factory.generate(s, prompt_model, prompt_type=STATEMENT_PROMPT_TYPE)
+
+            if i < len(previous_df) and key in previous_df:
+                res = previous_df[key][i]
+                self.model.save_to_cache(curr_prompt, res, key)
+            else:
+                res = self.model.chat(curr_prompt, key)
+            responses[key].append(res)
+            # End Bonus Experiments
+
             df = pd.DataFrame()
     
             df['Samples'] = samples[:len(responses["ORIGINAL"])]

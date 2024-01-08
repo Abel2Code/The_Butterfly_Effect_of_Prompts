@@ -6,6 +6,7 @@ import functools
 import json
 
 import matplotlib.pyplot as plt
+
 import matplotlib.patches as mpatches
 import numpy as np
 from sklearn.decomposition import PCA
@@ -14,23 +15,29 @@ from sklearn.metrics import accuracy_score
 
 from parse_tools.parsers import BAD_COLS
 
-colors = plt.get_cmap('Dark2').colors  # Get colors from 'tab20' colormap
+colors = list(plt.get_cmap('Dark2').colors)  # Get colors from 'tab20' colormap
 type2col_map = {
-    "Styles": ["ORIGINAL", "JSON_STYLE", "ChatGPT_JSON_PARAM", "XML_STYLE", "CSV_STYLE", "YAML_STYLE", "NO_STYLE"],
-    "Peturbations": ["SPACE_BEFORE_PB", "SPACE_AFTER_PB", "HELLO_PB", "HELLO!_PB", "HOWDY_PB", "THANK_YOU_PB", "STATEMENT_REPHRASE"],
+    "Output Formats": ["ORIGINAL", "JSON_STYLE", "ChatGPT_JSON_PARAM", "XML_STYLE", "CSV_STYLE", "YAML_STYLE", "NO_STYLE"],
+    "Perturbations": ["SPACE_BEFORE_PB", "SPACE_AFTER_PB", "HELLO_PB", "HELLO!_PB", "HOWDY_PB", "THANK_YOU_PB", "STATEMENT_REPHRASE"],
     "Special Cases": [],
     "Jailbreaks": ["AIM_JB", "EVIL_JB", "REFUSAL_JB", "DAN_JB", "DEV_JB"],
     "Tipping": ["WONT_TIP", "TIP_1", "TIP_10", "TIP_100", "TIP_1000"]
 }
 
+# Add clear versions
+for key, arr in type2col_map.items():
+    for a in list(arr):
+        arr.append(f"CLEAR_{a}")
+
 col2type_map = {v:k for k,v_list in type2col_map.items() for v in v_list}
 type2color_map = {key: (colors[i % len(colors) + 1] if key != "ORIGINAL" else "black") for i, key in enumerate(type2col_map.keys())}
+type2color_map[col2type_map['JSON_STYLE']] =  (1.0, 0.4980392156862745, 0.0)
 
 markers = ["^", "s", "P", "d", "*", "X", ">"]
 
 clean_name_map = {
     'ORIGINAL': 'Python List Format',
-    'THANK_YOU_PB': "Say \"Thank you\"",
+    'THANK_YOU_PB': "End with \"Thank you\"",
     "NO_STYLE": "No Specified Format",
     'CSV_STYLE': "CSV Format",
     'SPACE_AFTER_PB': "End with Space",
@@ -42,7 +49,7 @@ clean_name_map = {
     'JSON_STYLE': "JSON Format",
     'REFUSAL_JB': "Refusal Suppression",
     'XML_STYLE': "XML Format",
-    'ChatGPT_JSON_PARAM': "ChatGPT's JSON Parameter",
+    'ChatGPT_JSON_PARAM': "ChatGPT's JSON Checkbox",
     'YAML_STYLE': "YAML Format",
     
     # Jailbreaks
@@ -61,7 +68,24 @@ clean_name_map = {
     "TIP_10": "Tip $10",
     "TIP_100": "Tip $100",
     "TIP_1000": "Tip $1000",
+
+    # Tasks
+    'CoLA': 'CoLA',
+    'CoPA': 'CoPA',
+    'ColBERT': 'ColBERT',
+    'NLI': "GLUE Diagnostic",
+    'Sarcasm': 'iSarcasm',
+    'Sentiment': 'IMDBSentiment',
+    'Stance': 'TweetStance',
+    'Toxicity': 'Jigsaw Toxicity',
+    'BoolQA': 'BoolQ',
+    'Math': 'MathQA',
+    'ReAd': 'RACE'
 }
+
+# Add clear versions
+for key, value in list(clean_name_map.items()):
+    clean_name_map[f"CLEAR_{key}"] = value
     
 
 def update_cache(path, data, model_name):
@@ -146,16 +170,24 @@ def plot_bar(keys, values, save_path, red_values=None, should_sort=False, revers
         red_values = [x[2] for x in sorted_combined]
 
     if force_start_order:
+        new_start_keys = []
+        new_start_values = []
+        new_start_red_values = []
         for k in force_start_order:
             idx = keys.index(k)
-            keys.pop(idx)
+            
+            new_start_keys.append(keys.pop(idx))
+            new_start_values.append(values.pop(idx))
+            new_start_red_values.append(red_values.pop(idx))
 
-        keys = force_start_order + keys
+        keys = new_start_keys + keys
+        values = new_start_values + values
+        red_values = new_start_red_values + red_values
         
     plt.figure(figsize=figsize)  # Adjust the figure size if needed
     colors = [type2color_map[col2type_map[k]] for k in keys] if type2color_map else None
 
-    formatted_keys = [clean_name_map[k] for k in keys]
+    formatted_keys = [clean_name_map.get(k, k) for k in keys]
     plt.bar(formatted_keys, values, color=colors)
 
     plt.bar(formatted_keys, red_values, color='red')
@@ -191,10 +223,9 @@ def vectorize_data(data, tasks, categories, true_labels, bad_cols=BAD_COLS):
         task_data = data[task]
         labels = list(set(l for arr in task_data.values() for l in arr if l not in bad_cols))
 
-        
         for cat in categories:
             assert len(task_data[cat]) == len(true_labels[task])
-            label_map = Counter({True: -1, False: 1})
+            label_map = Counter({True: 1, False: -1})
             new_vector = []
             for pred, label in zip(task_data[cat], true_labels[task]):
                 if pred in bad_cols:
@@ -245,15 +276,14 @@ def plot_pca(data, tasks, categories, true_labels, save_path, type2col_map=type2
         x, y = transformed_data[i]
         
         key_type = r_type_map[key]
-        marker = markers[type2col_map[key_type].index(key)]
+        marker = markers[type2col_map[key_type].index(key) % len(markers)]
         
         plt.scatter(x, y, label=clean_name_map[key], marker=marker, color=type2color_map[key_type])
-    
-    plt.title('Similarity of N-dimensional Vectors')
-    plt.xlabel('Principal Component 1')
-    plt.ylabel('Principal Component 2')
+
+    plt.tick_params(left = False, right = False , labelleft = False , 
+                labelbottom = False, bottom = False) 
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.grid(True)
+    plt.grid(False)
     plt.savefig(save_path, bbox_inches='tight')
     plt.close()
 

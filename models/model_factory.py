@@ -48,7 +48,7 @@ class API_Model:
             self.cache[key] = {}
         
         if prompt in self.cache[key]:
-            assert self.cache[key][prompt] == content, (prompt, self.cache[key][prompt], content)
+            assert str(self.cache[key][prompt]) == str(content), (prompt, self.cache[key][prompt], content)
         else:
             self.cache[key][prompt] = content
 

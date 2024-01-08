@@ -47,16 +47,17 @@ def coT_inject(prompt):
     return python_list_inject(prompt)
 
 
-@verify_format
-def wont_tip_inject(prompt):
-    prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " I won't tip by the way.")
-    return python_list_inject(prompt)
+def wont_tip_injector(wrapper_injector):
+    @verify_format
+    def wont_tip_inject(prompt):
+        prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + " I won't tip by the way.")
+        return wrapper_injector(prompt)
+    return wont_tip_inject
 
 def tip_x_injector(x, wrapper_injector):
     @verify_format
     def tip_inject(prompt):
         prompt = prompt.replace(INJECTION_POSITION_STRING, INJECTION_POSITION_STRING + f" I'm going to tip ${x} for a perfect response!")
         return wrapper_injector(prompt)
-
     return tip_inject
         
